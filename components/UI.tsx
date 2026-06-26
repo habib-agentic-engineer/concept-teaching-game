@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from "react";
 import { useGame, QUESTS } from "./GameContext";
 import { Sliders, Flame, Hammer, Eye, Palette, ChevronDown, ChevronUp, Volume2, VolumeX, BookOpen } from "lucide-react";
 import { HolographicInsightCard } from "./HolographicInsightCard";
-import { AnimatePresence } from "motion/react";
+import { motion, AnimatePresence } from "motion/react";
 import { CookbookJournal } from "./CookbookJournal";
 
 export function UI() {
