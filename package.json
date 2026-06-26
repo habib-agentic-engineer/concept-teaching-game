@@ -20,7 +20,7 @@
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
     "tailwind-merge": "^3.3.1",
-    "three": "^0.164.0"
+    "three": "^0.184.0"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "4.1.11",
@@ -29,7 +29,7 @@
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "@types/three": "^0.164.0",
+    "@types/three": "^0.184.0",
     "@vitejs/plugin-react": "^6.0.3",
     "eslint": "9.39.1",
     "eslint-config-next": "15.0.8",
