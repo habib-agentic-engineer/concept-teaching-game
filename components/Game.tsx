@@ -1,17 +1,18 @@
 "use client";
 
 import { Canvas } from "@react-three/fiber";
-import { KeyboardControls, Environment } from "@react-three/drei";
-import { useMemo } from "react";
+import { KeyboardControls, Environment, AdaptiveDpr } from "@react-three/drei";
+import { useMemo, Suspense } from "react";
 import * as THREE from "three";
 import { GameProvider, useGame } from "./GameContext";
 import { Player } from "./Player";
 import { Town } from "./Town";
 import { Customer } from "./Customer";
 import { UI } from "./UI";
+import { LoadingScreen } from "./LoadingScreen";
 import { Skybox } from "./Skybox";
 import { Physics } from "@react-three/rapier";
-import { EffectComposer, SSAO, Bloom } from "@react-three/postprocessing";
+import { EffectComposer, Bloom } from "@react-three/postprocessing";
 
 function Scene() {
   const { interactWithCustomer, interactWithLocation, physicsDebug } = useGame();
@@ -24,16 +25,20 @@ function Scene() {
   ], [interactWithCustomer, interactWithLocation]);
 
   return (
-    <>
+    <Suspense fallback={null}>
       <Skybox />
       <ambientLight intensity={0.5} />
       <directionalLight 
         position={[10, 20, 10]} 
         intensity={1} 
         castShadow 
-        shadow-mapSize={[1024, 1024]}
+        shadow-mapSize={[512, 512]}
+        shadow-camera-far={50}
+        shadow-camera-left={-20}
+        shadow-camera-right={20}
+        shadow-camera-top={20}
+        shadow-camera-bottom={-20}
       >
-        <orthographicCamera attach="shadow-camera" args={[-20, 20, 20, -20]} />
       </directionalLight>
       <Environment preset="city" />
 
@@ -43,13 +48,7 @@ function Scene() {
         <Player interactables={interactables} />
       </Physics>
 
-      <EffectComposer enableNormalPass>
-        <SSAO 
-          intensity={1.0} 
-          radius={0.15} 
-          luminanceInfluence={0.5}
-          bias={0.03}
-        />
+      <EffectComposer enableNormalPass={false}>
         <Bloom 
           intensity={0.6} 
           luminanceThreshold={0.5} 
@@ -57,7 +56,8 @@ function Scene() {
           height={300} 
         />
       </EffectComposer>
-    </>
+      <AdaptiveDpr pixelated />
+    </Suspense>
   );
 }
 
@@ -73,7 +73,13 @@ export function Game() {
         ]}
       >
         <div className="w-full h-screen bg-black overflow-hidden relative font-sans">
-          <Canvas shadows camera={{ position: [0, 5, 10], fov: 50 }}>
+          <LoadingScreen />
+          <Canvas 
+            shadows 
+            camera={{ position: [0, 5, 10], fov: 50 }}
+            dpr={[1, 1.5]}
+            gl={{ powerPreference: "high-performance", antialias: false }}
+          >
             <Scene />
           </Canvas>
           <UI />

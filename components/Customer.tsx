@@ -181,6 +181,97 @@ const addRimLight = (colorStr: string, intensity = 0.5, power = 3.0) => {
   };
 };
 
+const EmotionParticles = ({ questState }: { questState: string }) => {
+  const [particles, setParticles] = useState<FloatingParticle[]>([]);
+  const spawnTimer = useRef(0);
+
+  useFrame((state, delta) => {
+    spawnTimer.current += delta;
+    if (spawnTimer.current > 1.4) {
+      spawnTimer.current = 0;
+
+      let text = "?";
+      let color = "#3b82f6";
+      if (questState === "completed" || questState === "answered") {
+        text = "♥";
+        color = "#ec4899";
+      } else if (questState === "active") {
+        text = "?";
+        color = "#f97316";
+      } else {
+        text = "★";
+        color = "#eab308";
+      }
+
+      setParticles((prev) => {
+        const next = prev
+          .map((p) => ({
+            ...p,
+            x: p.x + p.vx * delta,
+            y: p.y + p.vy * delta,
+            z: p.z + p.vz * delta,
+            life: p.life - delta,
+          }))
+          .filter((p) => p.life > 0);
+
+        if (next.length < 8) {
+          next.push({
+            id: Math.random(),
+            x: (Math.random() - 0.5) * 0.3,
+            y: 1.6 + Math.random() * 0.1,
+            z: (Math.random() - 0.5) * 0.3,
+            vx: (Math.random() - 0.5) * 0.2,
+            vy: 0.2 + Math.random() * 0.2,
+            vz: (Math.random() - 0.5) * 0.2,
+            life: 2.0,
+            maxLife: 2.0,
+            scale: 0.15 + Math.random() * 0.15,
+            color,
+            text,
+          });
+        }
+        return next;
+      });
+    } else {
+      setParticles((prev) => 
+        prev.map((p) => ({
+          ...p,
+          x: p.x + p.vx * delta,
+          y: p.y + p.vy * delta,
+          z: p.z + p.vz * delta,
+          life: p.life - delta,
+        })).filter((p) => p.life > 0)
+      );
+    }
+  });
+
+  return (
+    <>
+      {questState === "completed" && (
+        <Text position={[0, 1.85, 0]} fontSize={0.3} color="#eab308" font="https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuOKfMZg.ttf">
+          !
+        </Text>
+      )}
+      {particles.map((p) => {
+        const ratio = p.life / p.maxLife;
+        return (
+          <group key={p.id} position={[p.x, p.y, p.z]} scale={p.scale * ratio}>
+            <Text
+              fontSize={1.0}
+              color={p.color}
+              anchorX="center"
+              anchorY="middle"
+              font="https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuOKfMZg.ttf"
+            >
+              {p.text}
+            </Text>
+          </group>
+        );
+      })}
+    </>
+  );
+};
+
 export function Customer({ position }: { position: [number, number, number] }) {
   const { day, questState, dialog, interactWithCustomer } = useGame();
 
@@ -191,10 +282,6 @@ export function Customer({ position }: { position: [number, number, number] }) {
   
   // Track proximity to avoid spamming
   const wasCloseRef = useRef(false);
-
-  // Particles state for emotions
-  const [particles, setParticles] = useState<FloatingParticle[]>([]);
-  const spawnTimer = useRef(0);
 
   const isCompleted = day >= QUESTS.length;
   const currentQuest = !isCompleted ? QUESTS[day] : null;
@@ -321,8 +408,8 @@ export function Customer({ position }: { position: [number, number, number] }) {
           vec2 mouthCenter = vec2(0.5, 0.35);
 
           // 1. EYES SDF (Neutral, Talking, Happy, Surprised)
-          float eyeNeut_L = length((uv - leftEyeCenter) / vec2(0.75, 1.25)) - 0.024;
-          float eyeNeut_R = length((uv - rightEyeCenter) / vec2(0.75, 1.25)) - 0.024;
+          float eyeNeut_L = length((uv - leftEyeCenter) / vec2(0.75, 1.25)) - 0.012;
+          float eyeNeut_R = length((uv - rightEyeCenter) / vec2(0.75, 1.25)) - 0.012;
           float eyeNeutral = min(eyeNeut_L, eyeNeut_R);
 
           float eyeTalk_L = length((uv - leftEyeCenter) / vec2(0.85, 1.1)) - 0.022;
@@ -465,7 +552,7 @@ export function Customer({ position }: { position: [number, number, number] }) {
       }
 
       // Smooth horizontal rotation (Yaw) of body to face player
-      const targetRotationY = Math.atan2(playerPos.x - customerPos.x, playerPos.z - customerPos.z);
+      const targetRotationY = Math.atan2(playerPos.x - customerPos.x, playerPos.z - customerPos.z) + Math.PI;
       groupRef.current.rotation.y = THREE.MathUtils.lerp(groupRef.current.rotation.y, targetRotationY, 0.08);
 
       // Smooth look-at tracking for head with clamping
@@ -475,8 +562,8 @@ export function Customer({ position }: { position: [number, number, number] }) {
         const toPlayer = playerPos.clone().sub(headWorldPos).normalize();
 
         // Calculate relative Pitch and Yaw
-        const targetHeadYaw = Math.atan2(toPlayer.x, toPlayer.z) - groupRef.current.rotation.y;
-        const targetHeadPitch = -Math.asin(toPlayer.y);
+        const targetHeadYaw = Math.atan2(toPlayer.x, toPlayer.z) + Math.PI - groupRef.current.rotation.y;
+        const targetHeadPitch = Math.asin(toPlayer.y);
 
         // Clamp head rotation to realistic human range (-50 to +50 degrees)
         const clampRange = Math.PI / 3.6;
@@ -511,70 +598,6 @@ export function Customer({ position }: { position: [number, number, number] }) {
     hairUniformsListRef.current.forEach((uni) => {
       if (uni) uni.uTime.value = t;
     });
-
-    // 6. Emotion Particle Emitter Update
-    spawnTimer.current += delta;
-    if (spawnTimer.current > 1.4) {
-      spawnTimer.current = 0;
-
-      // Decide particle emotion based on quest state
-      let text = "?";
-      let color = "#3b82f6"; // Blue question mark for active waiting
-      if (questState === "completed" || questState === "answered") {
-        text = "♥";
-        color = "#ec4899"; // Pink hearts for satisfied
-      } else if (questState === "active") {
-        text = "?";
-        color = "#f97316"; // Orange question mark
-      } else {
-        text = "★";
-        color = "#eab308"; // Gold star for idle greeting
-      }
-
-      // Add a new floating particle
-      setParticles((prev) => {
-        const next = prev
-          .map((p) => ({
-            ...p,
-            x: p.x + p.vx * delta,
-            y: p.y + p.vy * delta,
-            z: p.z + p.vz * delta,
-            life: p.life - delta,
-          }))
-          .filter((p) => p.life > 0);
-
-        if (next.length < 8) {
-          next.push({
-            id: Math.random(),
-            x: (Math.random() - 0.5) * 0.3,
-            y: 1.6 + Math.random() * 0.1,
-            z: (Math.random() - 0.5) * 0.3,
-            vx: (Math.random() - 0.5) * 0.15,
-            vy: 0.4 + Math.random() * 0.3,
-            vz: (Math.random() - 0.5) * 0.15,
-            life: 1.5,
-            maxLife: 1.5,
-            text,
-            color,
-            scale: 0.14 + Math.random() * 0.08,
-          });
-        }
-        return next;
-      });
-    } else {
-      // Just update existing particles positions without spawning
-      setParticles((prev) =>
-        prev
-          .map((p) => ({
-            ...p,
-            x: p.x + p.vx * delta,
-            y: p.y + p.vy * delta,
-            z: p.z + p.vz * delta,
-            life: p.life - delta,
-          }))
-          .filter((p) => p.life > 0)
-      );
-    }
   });
 
   if (isCompleted) return null;
@@ -593,7 +616,7 @@ export function Customer({ position }: { position: [number, number, number] }) {
           <meshStandardMaterial color="#cbd5e1" roughness={0.6} />
         </mesh>
         {/* Outer Clothes Jacket Layer (capsule with procedurally displaced vertex folds & rim lighting) */}
-        <mesh position={[0, -0.01, 0]} scale={[1.04, 0.98, 1.04]} castShadow receiveShadow>
+        <mesh position={[0, -0.01, 0]} scale={[1.04, 0.98, 1.04]} receiveShadow>
           <capsuleGeometry args={[0.22, 0.5, 3, 8]} />
           <meshStandardMaterial 
             key={`coat-${charId}`}
@@ -610,23 +633,23 @@ export function Customer({ position }: { position: [number, number, number] }) {
       </group>
 
       {/* 2. Left Arm */}
-      <mesh ref={leftArmRef} position={[-0.3, 0.75, 0]} castShadow>
+      <mesh ref={leftArmRef} position={[-0.3, 0.75, 0]}>
         <capsuleGeometry args={[0.06, 0.3, 2, 4]} />
         <meshStandardMaterial color={charStyle.clothingColor} roughness={0.45} onBeforeCompile={addRimLight("#22d3ee", 0.4, 3.5)} />
       </mesh>
 
       {/* 3. Right Arm */}
-      <mesh ref={rightArmRef} position={[0.3, 0.75, 0]} castShadow>
+      <mesh ref={rightArmRef} position={[0.3, 0.75, 0]}>
         <capsuleGeometry args={[0.06, 0.3, 2, 4]} />
         <meshStandardMaterial color={charStyle.clothingColor} roughness={0.45} onBeforeCompile={addRimLight("#22d3ee", 0.4, 3.5)} />
       </mesh>
 
       {/* 4. Legs */}
-      <mesh position={[-0.1, 0.15, 0]} castShadow>
+      <mesh position={[-0.1, 0.15, 0]}>
         <capsuleGeometry args={[0.07, 0.3, 2, 4]} />
         <meshStandardMaterial color="#1e293b" roughness={0.7} />
       </mesh>
-      <mesh position={[0.1, 0.15, 0]} castShadow>
+      <mesh position={[0.1, 0.15, 0]}>
         <capsuleGeometry args={[0.07, 0.3, 2, 4]} />
         <meshStandardMaterial color="#1e293b" roughness={0.7} />
       </mesh>
@@ -634,8 +657,8 @@ export function Customer({ position }: { position: [number, number, number] }) {
       {/* 5. Head Group (Look-at behavior) */}
       <group ref={headRef} position={[0, 1.15, 0]}>
         {/* Head Sphere with custom cyber cyan rim lighting shader */}
-        <mesh castShadow>
-          <sphereGeometry args={[0.22, 6, 6]} />
+        <mesh>
+          <sphereGeometry args={[0.22, 32, 32]} />
           <meshStandardMaterial 
             key={`skin-${charId}`}
             color={charStyle.skinColor} 
@@ -646,7 +669,7 @@ export function Customer({ position }: { position: [number, number, number] }) {
 
         {/* Dynamic Procedural Face Plane containing Eye and Mouth Blendshapes */}
         <mesh position={[0, 0.01, -0.218]} rotation={[0, 0, 0]}>
-          <planeGeometry args={[0.24, 0.24]} />
+          <planeGeometry args={[0.12, 0.12]} />
           <primitive object={faceMaterial} attach="material" />
         </mesh>
 
@@ -655,8 +678,8 @@ export function Customer({ position }: { position: [number, number, number] }) {
         {charStyle.hasCap && (
           <group position={[0, 0.15, 0.02]}>
             {/* Cap Dome */}
-            <mesh castShadow>
-              <sphereGeometry args={[0.23, 6, 6]} />
+            <mesh>
+              <sphereGeometry args={[0.23, 32, 32]} />
               <meshStandardMaterial color={charStyle.hairColor} roughness={0.5} onBeforeCompile={addRimLight("#22d3ee", 0.4, 3.0)} />
             </mesh>
             {/* Cap Brim */}
@@ -671,8 +694,8 @@ export function Customer({ position }: { position: [number, number, number] }) {
         {charId === "sarah" && (
           <group position={[0, 0.04, 0.02]}>
             {/* Top Hair */}
-            <mesh position={[0, 0.08, -0.02]} castShadow>
-              <sphereGeometry args={[0.235, 6, 6]} />
+            <mesh position={[0, 0.08, -0.02]}>
+              <sphereGeometry args={[0.235, 32, 32]} />
               <meshStandardMaterial color={charStyle.hairColor} roughness={0.8} onBeforeCompile={addRimLight("#22d3ee", 0.4, 3.0)} />
             </mesh>
             
@@ -682,7 +705,7 @@ export function Customer({ position }: { position: [number, number, number] }) {
                 key={idx}
                 position={[offset, -0.08, -0.04]} 
                 rotation={[0, 0, offset * -0.6]}
-                castShadow
+               
               >
                 <planeGeometry args={[0.04, 0.16]} />
                 <meshStandardMaterial 
@@ -701,21 +724,21 @@ export function Customer({ position }: { position: [number, number, number] }) {
         {charStyle.hasBeard && (
           <group>
             {/* Side/Back Hair Ring */}
-            <mesh position={[0, 0.04, 0.04]} castShadow>
-              <sphereGeometry args={[0.23, 6, 6]} />
+            <mesh position={[0, 0.04, 0.04]}>
+              <sphereGeometry args={[0.23, 32, 32]} />
               <meshStandardMaterial color={charStyle.hairColor} roughness={0.9} onBeforeCompile={addRimLight("#22d3ee", 0.45, 3.0)} />
             </mesh>
             
             {/* Bushy Beard base (under chin) */}
-            <mesh position={[0, -0.15, -0.1]} castShadow>
+            <mesh position={[0, -0.15, -0.1]}>
               <sphereGeometry args={[0.12, 4, 4]} />
               <meshStandardMaterial color="#ffffff" roughness={0.9} />
             </mesh>
-            <mesh position={[-0.06, -0.12, -0.12]} castShadow>
+            <mesh position={[-0.06, -0.12, -0.12]}>
               <sphereGeometry args={[0.08, 4, 4]} />
               <meshStandardMaterial color="#ffffff" roughness={0.9} />
             </mesh>
-            <mesh position={[0.06, -0.12, -0.12]} castShadow>
+            <mesh position={[0.06, -0.12, -0.12]}>
               <sphereGeometry args={[0.08, 4, 4]} />
               <meshStandardMaterial color="#ffffff" roughness={0.9} />
             </mesh>
@@ -732,7 +755,7 @@ export function Customer({ position }: { position: [number, number, number] }) {
                 key={idx}
                 position={[offset, -0.19, -0.13]}
                 rotation={[0.1, 0, offset * -0.4]}
-                castShadow
+               
               >
                 <cylinderGeometry args={[0.015, 0.005, 0.15, 4]} />
                 <meshStandardMaterial
@@ -747,40 +770,9 @@ export function Customer({ position }: { position: [number, number, number] }) {
         )}
       </group>
 
-      {/* 6. Static text bubble or indicators above Head */}
-      {questState === "completed" || questState === "answered" ? (
-        <Text position={[0, 1.85, 0]} fontSize={0.25} color="#22c55e" font="https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuOKfMZg.ttf">
-          Thank you!
-        </Text>
-      ) : questState === "active" ? (
-        <Text position={[0, 1.85, 0]} fontSize={0.25} color="#f97316" font="https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuOKfMZg.ttf">
-          Waiting for order...
-        </Text>
-      ) : (
-        <Text position={[0, 1.85, 0]} fontSize={0.3} color="#eab308" font="https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuOKfMZg.ttf">
-          !
-        </Text>
-      )}
+      <EmotionParticles questState={questState} />
 
-      {/* 7. Floating Emotion Particles Emitter */}
-      {particles.map((p) => {
-        const ratio = p.life / p.maxLife;
-        return (
-          <group key={p.id} position={[p.x, p.y, p.z]} scale={p.scale * ratio}>
-            <Text
-              fontSize={1.0}
-              color={p.color}
-              anchorX="center"
-              anchorY="middle"
-              font="https://fonts.gstatic.com/s/inter/v12/UcCO3FwrK3iLTeHuS_fvQtMwCp50KnMw2boKoduKmMEVuOKfMZg.ttf"
-            >
-              {p.text}
-            </Text>
-          </group>
-        );
-      })}
-
-      {/* 8. Modern 3D HTML Typewriter Speech Bubble */}
+      {/* 7. Modern 3D HTML Typewriter Speech Bubble */}
       <Html position={[0, 2.3, 0]} center distanceFactor={8} pointerEvents="none">
         <AnimatePresence mode="wait">
           {isThisCustomerSpeaking && (
@@ -788,7 +780,7 @@ export function Customer({ position }: { position: [number, number, number] }) {
               initial={{ opacity: 0, scale: 0.85, y: 15 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.85, y: 10 }}
-              transition={{ type: "spring", stiffness: 300, damping: 24 }}
+              transition={{ type: "spring", stiffness: 300, damping: 12 }}
               className="w-72 bg-slate-950/90 backdrop-blur-md border border-cyan-500/40 text-slate-100 p-4 rounded-2xl shadow-[0_10px_25px_-5px_rgba(6,182,212,0.3)] relative flex flex-col gap-1.5 pointer-events-auto"
             >
               {/* Pointing down tail */}

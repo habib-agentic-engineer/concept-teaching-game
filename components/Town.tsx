@@ -10,6 +10,34 @@ import { MetalMaterial } from "./MetalMaterial";
 import { FloorMaterial } from "./FloorMaterial";
 import { RigidBody, CuboidCollider } from "@react-three/rapier";
 
+// --- Shared Geometries ---
+const buildingGeo = new THREE.BoxGeometry(8, 3, 6);
+const fridgeGeo = new THREE.BoxGeometry(0.8, 2.0, 0.8);
+const handleGeo = new THREE.BoxGeometry(0.04, 0.6, 0.04);
+const stoveGeo = new THREE.BoxGeometry(1.2, 1.0, 0.8);
+const cooktopGeo = new THREE.BoxGeometry(1.1, 0.02, 0.7);
+const counterGeo = new THREE.BoxGeometry(4, 1, 1);
+const pantryGeo1 = new THREE.BoxGeometry(3, 3, 3);
+const pantryGeo2 = new THREE.BoxGeometry(3.5, 0.5, 3.5);
+const searchGeo1 = new THREE.CylinderGeometry(2, 2, 3, 8);
+const searchGeo2 = new THREE.ConeGeometry(2.5, 1.5, 8);
+const researchGeo1 = new THREE.BoxGeometry(6, 5, 4);
+const researchGeo2 = new THREE.SphereGeometry(2.5, 16, 16);
+const treeTrunkGeo = new THREE.CylinderGeometry(0.2, 0.2, 2);
+const treeLeafGeo = new THREE.SphereGeometry(1.5);
+const floorGeo = new THREE.PlaneGeometry(50, 50);
+
+// --- Shared Materials ---
+const kitchenMat = new THREE.MeshStandardMaterial({ color: "#fcd34d" });
+const handleMat = new THREE.MeshStandardMaterial({ color: "#475569", metalness: 0.9, roughness: 0.1 });
+const cooktopMat = new THREE.MeshStandardMaterial({ color: "#1e293b", roughness: 0.9 });
+const pantryMat1 = new THREE.MeshStandardMaterial({ color: "#60a5fa" });
+const pantryMat2 = new THREE.MeshStandardMaterial({ color: "#1e3a8a" });
+const searchMat1 = new THREE.MeshStandardMaterial({ color: "#34d399" });
+const searchMat2 = new THREE.MeshStandardMaterial({ color: "#059669" });
+const researchMat = new THREE.MeshStandardMaterial({ color: "#c084fc" });
+const treeLeafMat = new THREE.MeshStandardMaterial({ color: "#166534" });
+
 export function Town() {
   const {
     woodGrainScale,
@@ -27,8 +55,7 @@ export function Town() {
     <group>
       {/* Ground (Floor) with Static Collider */}
       <RigidBody type="fixed" colliders={false}>
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]} receiveShadow>
-          <planeGeometry args={[50, 50]} />
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.01, 0]} receiveShadow geometry={floorGeo}>
           <FloorMaterial tileScale={1.2} groutWidth={0.03} />
         </mesh>
         <CuboidCollider args={[25, 0.1, 25]} position={[0, -0.1, 0]} />
@@ -48,10 +75,7 @@ export function Town() {
 
       {/* The Kitchen Building */}
       <RigidBody type="fixed" position={[0, 1.5, -2]} colliders={false}>
-        <mesh receiveShadow castShadow>
-          <boxGeometry args={[8, 3, 6]} />
-          <meshStandardMaterial color="#fcd34d" />
-        </mesh>
+        <mesh receiveShadow castShadow geometry={buildingGeo} material={kitchenMat} />
         <CuboidCollider args={[4, 1.5, 3]} />
       </RigidBody>
       
@@ -63,8 +87,7 @@ export function Town() {
       {/* Retrieval Refrigerator */}
       <RigidBody type="fixed" position={[-1.5, 0, -1.5]} colliders={false}>
         <group>
-          <mesh position={[0, 1.0, 0]} castShadow receiveShadow>
-            <boxGeometry args={[0.8, 2.0, 0.8]} />
+          <mesh position={[0, 1.0, 0]} castShadow receiveShadow geometry={fridgeGeo}>
             <MetalMaterial 
               scratchScale={metalScratchScale}
               scratchDirection={metalScratchDirection}
@@ -74,10 +97,7 @@ export function Town() {
             />
           </mesh>
           {/* Soft handle */}
-          <mesh position={[0.42, 1.0, 0.1]} castShadow>
-            <boxGeometry args={[0.04, 0.6, 0.04]} />
-            <meshStandardMaterial color="#475569" metalness={0.9} roughness={0.1} />
-          </mesh>
+          <mesh position={[0.42, 1.0, 0.1]} geometry={handleGeo} material={handleMat} />
         </group>
         <CuboidCollider args={[0.4, 1.0, 0.4]} position={[0, 1.0, 0]} />
       </RigidBody>
@@ -85,8 +105,7 @@ export function Town() {
       {/* Retrieval Range & Oven */}
       <RigidBody type="fixed" position={[1.5, 0, -1.5]} colliders={false}>
         <group>
-          <mesh position={[0, 0.5, 0]} castShadow receiveShadow>
-            <boxGeometry args={[1.2, 1.0, 0.8]} />
+          <mesh position={[0, 0.5, 0]} castShadow receiveShadow geometry={stoveGeo}>
             <MetalMaterial 
               scratchScale={metalScratchScale}
               scratchDirection={metalScratchDirection}
@@ -96,18 +115,14 @@ export function Town() {
             />
           </mesh>
           {/* Cooktop grates */}
-          <mesh position={[0, 1.01, 0]} receiveShadow>
-            <boxGeometry args={[1.1, 0.02, 0.7]} />
-            <meshStandardMaterial color="#1e293b" roughness={0.9} />
-          </mesh>
+          <mesh position={[0, 1.01, 0]} receiveShadow geometry={cooktopGeo} material={cooktopMat} />
         </group>
         <CuboidCollider args={[0.6, 0.5, 0.4]} position={[0, 0.5, 0]} />
       </RigidBody>
 
       {/* Counter */}
       <RigidBody type="fixed" position={[0, 0.5, 1.5]} colliders={false}>
-        <mesh receiveShadow castShadow>
-          <boxGeometry args={[4, 1, 1]} />
+        <mesh receiveShadow castShadow geometry={counterGeo}>
           <WoodMaterial 
             grainScale={woodGrainScale}
             colorVariation={woodColorVariation}
@@ -123,14 +138,8 @@ export function Town() {
       {/* Memory Pantry (Left side standalone entity) */}
       <RigidBody type="fixed" position={[-8, 0, 2]} colliders={false}>
         <group>
-          <mesh position={[0, 1.5, 0]} receiveShadow castShadow>
-            <boxGeometry args={[3, 3, 3]} />
-            <meshStandardMaterial color="#60a5fa" />
-          </mesh>
-          <mesh position={[0, 3.5, 0]} receiveShadow castShadow>
-             <boxGeometry args={[3.5, 0.5, 3.5]} />
-             <meshStandardMaterial color="#1e3a8a" />
-          </mesh>
+          <mesh position={[0, 1.5, 0]} receiveShadow castShadow geometry={pantryGeo1} material={pantryMat1} />
+          <mesh position={[0, 3.5, 0]} receiveShadow castShadow geometry={pantryGeo2} material={pantryMat2} />
           <Text position={[0, 4.5, 0]} fontSize={0.6} color="#1e3a8a">
             Memory Pantry
           </Text>
@@ -142,14 +151,8 @@ export function Town() {
       {/* Search Market (Right side standalone entity) */}
       <RigidBody type="fixed" position={[8, 0, 2]} colliders={false}>
         <group>
-          <mesh position={[0, 1.5, 0]} receiveShadow castShadow>
-            <cylinderGeometry args={[2, 2, 3, 8]} />
-            <meshStandardMaterial color="#34d399" />
-          </mesh>
-          <mesh position={[0, 3.5, 0]} receiveShadow castShadow>
-            <coneGeometry args={[2.5, 1.5, 8]} />
-            <meshStandardMaterial color="#059669" />
-          </mesh>
+          <mesh position={[0, 1.5, 0]} receiveShadow castShadow geometry={searchGeo1} material={searchMat1} />
+          <mesh position={[0, 3.5, 0]} receiveShadow castShadow geometry={searchGeo2} material={searchMat2} />
           <Text position={[0, 4.8, 0]} fontSize={0.6} color="#064e3b">
             Search Market
           </Text>
@@ -161,12 +164,8 @@ export function Town() {
       {/* Deep Research Lab (Back center standalone entity) */}
       <RigidBody type="fixed" position={[0, 0, -10]} colliders={false}>
         <group>
-          <mesh position={[0, 2.5, 0]} receiveShadow castShadow>
-            <boxGeometry args={[6, 5, 4]} />
-            <meshStandardMaterial color="#c084fc" />
-          </mesh>
-          <mesh position={[0, 6, 0]} receiveShadow castShadow>
-            <sphereGeometry args={[2.5, 16, 16]} />
+          <mesh position={[0, 2.5, 0]} receiveShadow castShadow geometry={researchGeo1} material={researchMat} />
+          <mesh position={[0, 6, 0]} receiveShadow castShadow geometry={researchGeo2}>
             <MetalMaterial 
               scratchScale={metalScratchScale * 0.8}
               scratchDirection={1.0 - metalScratchDirection}
@@ -186,8 +185,7 @@ export function Town() {
       {/* Some random trees/props */}
       <RigidBody type="fixed" position={[10, 0, -8]} colliders={false}>
         <group>
-          <mesh position={[0, 1, 0]} castShadow>
-            <cylinderGeometry args={[0.2, 0.2, 2]} />
+          <mesh position={[0, 1, 0]} castShadow geometry={treeTrunkGeo}>
             <WoodMaterial 
               grainScale={woodGrainScale * 1.5}
               colorVariation={woodColorVariation}
@@ -197,18 +195,14 @@ export function Town() {
               baseColorDark="#2d1508"
             />
           </mesh>
-          <mesh position={[0, 2.5, 0]} castShadow>
-            <sphereGeometry args={[1.5]} />
-            <meshStandardMaterial color="#166534" />
-          </mesh>
+          <mesh position={[0, 2.5, 0]} geometry={treeLeafGeo} material={treeLeafMat} />
         </group>
         <CuboidCollider args={[0.3, 1.0, 0.3]} position={[0, 1.0, 0]} />
       </RigidBody>
       
       <RigidBody type="fixed" position={[-8, 0, -10]} colliders={false}>
         <group>
-          <mesh position={[0, 1, 0]} castShadow>
-            <cylinderGeometry args={[0.2, 0.2, 2]} />
+          <mesh position={[0, 1, 0]} castShadow geometry={treeTrunkGeo}>
             <WoodMaterial 
               grainScale={woodGrainScale * 1.5}
               colorVariation={woodColorVariation}
@@ -218,10 +212,7 @@ export function Town() {
               baseColorDark="#2d1508"
             />
           </mesh>
-          <mesh position={[0, 2.5, 0]} castShadow>
-            <sphereGeometry args={[1.5]} />
-            <meshStandardMaterial color="#166534" />
-          </mesh>
+          <mesh position={[0, 2.5, 0]} geometry={treeLeafGeo} material={treeLeafMat} />
         </group>
         <CuboidCollider args={[0.3, 1.0, 0.3]} position={[0, 1.0, 0]} />
       </RigidBody>

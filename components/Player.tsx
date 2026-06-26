@@ -19,6 +19,38 @@ interface Interactable {
   onInteract: () => void;
 }
 
+// Reusable skin/head material shader with soft subsurface-like rim
+const getSkinShader = (colorStr: string) => {
+  return (shader: THREE.Shader) => {
+    shader.vertexShader = shader.vertexShader.replace(
+      '#include <common>',
+      `#include <common>
+ varying vec3 vWorldNormalCustom;
+ varying vec3 vWorldPositionCustom;`
+    );
+    shader.vertexShader = shader.vertexShader.replace(
+      '#include <begin_vertex>',
+      `#include <begin_vertex>
+ vWorldNormalCustom = normalize((modelMatrix * vec4(normal, 0.0)).xyz);
+ vWorldPositionCustom = (modelMatrix * vec4(position, 1.0)).xyz;`
+    );
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <common>',
+      `#include <common>
+ varying vec3 vWorldNormalCustom;
+ varying vec3 vWorldPositionCustom;`
+    );
+    shader.fragmentShader = shader.fragmentShader.replace(
+      '#include <emissivemap_fragment>',
+      `#include <emissivemap_fragment>
+ vec3 V = normalize(cameraPosition - vWorldPositionCustom);
+ float rim = 1.0 - max(dot(normalize(vWorldNormalCustom), V), 0.0);
+ rim = pow(rim, 3.5);
+ totalEmissiveRadiance += vec3(0.9, 0.4, 0.3) * rim * 0.2;`
+    );
+  };
+};
+
 // Procedural fabric shader builder for player uniform, hat, and apron
 const getPlayerFabricShader = (
   colorStr: string,
@@ -185,7 +217,7 @@ export function Player({ interactables }: { interactables: Interactable[] }) {
     playerPositionGlobal.copy(playerPos);
 
     if (isMoving && visualRef.current) {
-      direction.copy(velocity).add(playerPos);
+      direction.copy(playerPos).sub(velocity);
       direction.y = playerPos.y; // look horizontally
       visualRef.current.lookAt(direction);
     }
@@ -368,7 +400,7 @@ export function Player({ interactables }: { interactables: Interactable[] }) {
         {/* ==================== TORSO / BODY ==================== */}
         {/* Main Double-Breasted Chef's Jacket (Capsule) */}
         <mesh position={[0, 0.65, 0]} castShadow receiveShadow>
-          <capsuleGeometry args={[0.24, 0.45, 16, 16]} />
+          <capsuleGeometry args={[0.13, 0.45, 32, 32]} />
           <meshStandardMaterial 
             key="chef-torso"
             color="#f8fafc" // Off-white jacket
@@ -378,17 +410,17 @@ export function Player({ interactables }: { interactables: Interactable[] }) {
         </mesh>
 
         {/* High-Tech Collar Wrap */}
-        <mesh position={[0, 0.88, 0]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+        <mesh position={[0, 0.88, 0]} rotation={[Math.PI / 2, 0, 0]}>
           <torusGeometry args={[0.15, 0.035, 8, 16]} />
           <meshStandardMaterial color="#cbd5e1" roughness={0.5} />
         </mesh>
 
         {/* Shoulder Epaulets / Protective Culinary Guards */}
-        <mesh position={[-0.26, 0.83, 0]} rotation={[0, 0, -0.15]} castShadow>
+        <mesh position={[-0.26, 0.83, 0]} rotation={[0, 0, -0.15]}>
           <boxGeometry args={[0.1, 0.04, 0.18]} />
           <meshStandardMaterial color="#334155" roughness={0.3} metalness={0.5} />
         </mesh>
-        <mesh position={[0.26, 0.83, 0]} rotation={[0, 0, 0.15]} castShadow>
+        <mesh position={[0.26, 0.83, 0]} rotation={[0, 0, 0.15]}>
           <boxGeometry args={[0.1, 0.04, 0.18]} />
           <meshStandardMaterial color="#334155" roughness={0.3} metalness={0.5} />
         </mesh>
@@ -397,7 +429,7 @@ export function Player({ interactables }: { interactables: Interactable[] }) {
         {[-0.07, 0.07].map((xOffset) => (
           <group key={`row-${xOffset}`}>
             {[0.52, 0.62, 0.72].map((yHeight) => (
-              <mesh key={`btn-${yHeight}`} position={[xOffset, yHeight, -0.215]} castShadow>
+              <mesh key={`btn-${yHeight}`} position={[xOffset, yHeight, -0.215]}>
                 <sphereGeometry args={[0.018, 8, 8]} />
                 <meshStandardMaterial color="#f59e0b" roughness={0.15} metalness={0.9} />
               </mesh>
@@ -406,52 +438,61 @@ export function Player({ interactables }: { interactables: Interactable[] }) {
         ))}
 
 
-        {/* ==================== HEAD & CYBER-VISOR ==================== */}
-        {/* Highly-detailed Sci-Fi Helmet Head Group */}
+                {/* ==================== HEAD & FACE ==================== */}
         <group ref={headRef} position={[0, 1.05, 0]}>
           
-          {/* Main Helmet Spherical Shell */}
+          {/* Main Head (Skin) */}
           <mesh castShadow>
-            <sphereGeometry args={[0.18, 16, 16]} />
-            <meshStandardMaterial color="#0f172a" roughness={0.2} metalness={0.6} /> {/* Dark tech shell */}
+            <sphereGeometry args={[0.18, 32, 32]} />
+            <meshStandardMaterial 
+              color="#fbcfe8" 
+              roughness={0.4} 
+              onBeforeCompile={getSkinShader("#fbcfe8")}
+            />
           </mesh>
 
-          {/* Golden Panel Frame around Visor */}
-          <mesh position={[0, 0.01, -0.04]} rotation={[0, 0, 0]}>
-            <torusGeometry args={[0.15, 0.015, 8, 24]} />
-            <meshStandardMaterial color="#e2e8f0" roughness={0.3} metalness={0.7} />
+          {/* Nose */}
+          <mesh position={[0, 0, -0.18]} rotation={[Math.PI/8, 0, 0]} castShadow>
+            <capsuleGeometry args={[0.025, 0.04, 16, 16]} />
+            <meshStandardMaterial color="#f9a8d4" roughness={0.4} />
           </mesh>
 
-          {/* Sleek Polished Dark Glass Visor */}
-          <mesh position={[0, 0.01, -0.105]} scale={[1.1, 0.8, 0.7]} castShadow>
-            <sphereGeometry args={[0.14, 16, 16]} />
-            <meshStandardMaterial color="#020617" roughness={0.05} metalness={0.95} />
+          {/* Eyes (Left & Right) */}
+          <mesh position={[-0.07, 0.04, -0.16]}>
+            <sphereGeometry args={[0.02, 8, 8]} />
+            <meshStandardMaterial color="#0f172a" roughness={0.1} />
           </mesh>
-
-          {/* Pulsing Cyan Holographic Laser Visor Band */}
-          <mesh position={[0, 0.02, -0.178]} scale={[1.0, 0.25, 0.4]}>
-            <boxGeometry args={[0.22, 0.12, 0.06]} />
-            <meshBasicMaterial color="#06b6d4" />
-          </mesh>
-
-          {/* Tactical Ear Comms Pods (Sides) */}
-          <mesh position={[0.175, 0, 0]} rotation={[0, Math.PI / 2, 0]} castShadow>
-            <cylinderGeometry args={[0.04, 0.04, 0.03, 12]} />
-            <meshStandardMaterial color="#1e293b" roughness={0.4} metalness={0.8} />
-          </mesh>
-          <mesh position={[-0.175, 0, 0]} rotation={[0, -Math.PI / 2, 0]} castShadow>
-            <cylinderGeometry args={[0.04, 0.04, 0.03, 12]} />
-            <meshStandardMaterial color="#1e293b" roughness={0.4} metalness={0.8} />
+          <mesh position={[0.07, 0.04, -0.16]}>
+            <sphereGeometry args={[0.02, 8, 8]} />
+            <meshStandardMaterial color="#0f172a" roughness={0.1} />
           </mesh>
           
-          {/* Cyan Comm Status LEDs */}
-          <mesh position={[0.19, 0, -0.015]}>
-            <sphereGeometry args={[0.01, 8, 8]} />
-            <meshBasicMaterial color="#06b6d4" />
+          {/* Eye Highlights */}
+          <mesh position={[-0.075, 0.045, -0.178]}>
+            <sphereGeometry args={[0.005, 4, 4]} />
+            <meshBasicMaterial color="#ffffff" />
           </mesh>
-          <mesh position={[-0.19, 0, -0.015]}>
-            <sphereGeometry args={[0.01, 8, 8]} />
-            <meshBasicMaterial color="#06b6d4" />
+          <mesh position={[0.065, 0.045, -0.178]}>
+            <sphereGeometry args={[0.005, 4, 4]} />
+            <meshBasicMaterial color="#ffffff" />
+          </mesh>
+
+          {/* Mustache */}
+          <group position={[0, -0.06, -0.17]} rotation={[0, 0, 0]}>
+             <mesh position={[-0.04, 0, 0]} rotation={[0, 0, -Math.PI/6]} castShadow>
+               <capsuleGeometry args={[0.015, 0.08, 8, 8]} />
+               <meshStandardMaterial color="#475569" roughness={0.8} />
+             </mesh>
+             <mesh position={[0.04, 0, 0]} rotation={[0, 0, Math.PI/6]} castShadow>
+               <capsuleGeometry args={[0.015, 0.08, 8, 8]} />
+               <meshStandardMaterial color="#475569" roughness={0.8} />
+             </mesh>
+          </group>
+
+          {/* Hair (Back/Sides) */}
+          <mesh position={[0, 0.02, 0.04]} scale={[1.05, 1.0, 1.05]} castShadow>
+             <sphereGeometry args={[0.18, 32, 32]} />
+             <meshStandardMaterial color="#475569" roughness={0.8} />
           </mesh>
 
           {/* ==================== THE CHEF HAT ==================== */}
@@ -459,8 +500,8 @@ export function Player({ interactables }: { interactables: Interactable[] }) {
           <group ref={hatRef} position={[0, 0.14, 0]}>
             
             {/* Rigid base cylinder */}
-            <mesh castShadow position={[0, 0.04, 0]}>
-              <cylinderGeometry args={[0.12, 0.12, 0.08, 16]} />
+            <mesh position={[0, 0.04, 0]}>
+              <cylinderGeometry args={[0.12, 0.12, 0.08, 32]} />
               <meshStandardMaterial 
                 key="chef-hat-band"
                 color="#f8fafc" 
@@ -469,14 +510,14 @@ export function Player({ interactables }: { interactables: Interactable[] }) {
             </mesh>
 
             {/* Solid Silver Brand Crest on Hat Band */}
-            <mesh position={[0, 0.04, -0.125]} rotation={[0.0, 0, 0]} castShadow>
+            <mesh position={[0, 0.04, -0.125]} rotation={[0.0, 0, 0]}>
               <boxGeometry args={[0.04, 0.03, 0.01]} />
               <meshStandardMaterial color="#94a3b8" roughness={0.1} metalness={0.9} />
             </mesh>
 
             {/* Organic puffy main crown (3 overlapping spheres for artistic volume) */}
-            <mesh castShadow position={[0, 0.17, 0]}>
-              <sphereGeometry args={[0.16, 16, 16]} />
+            <mesh position={[0, 0.17, 0]}>
+              <sphereGeometry args={[0.16, 32, 32]} />
               <meshStandardMaterial 
                 key="chef-hat-top-1"
                 color="#ffffff" 
@@ -484,12 +525,12 @@ export function Player({ interactables }: { interactables: Interactable[] }) {
                 onBeforeCompile={getPlayerFabricShader("#ffffff", hatUniformsRef, 14.0, 0.016)}
               />
             </mesh>
-            <mesh castShadow position={[-0.04, 0.19, -0.02]} scale={[0.8, 0.8, 0.8]}>
-              <sphereGeometry args={[0.16, 12, 12]} />
+            <mesh position={[-0.04, 0.19, -0.02]} scale={[0.8, 0.8, 0.8]}>
+              <sphereGeometry args={[0.16, 24, 24]} />
               <meshStandardMaterial color="#ffffff" roughness={0.45} />
             </mesh>
-            <mesh castShadow position={[0.04, 0.19, 0.02]} scale={[0.8, 0.8, 0.8]}>
-              <sphereGeometry args={[0.16, 12, 12]} />
+            <mesh position={[0.04, 0.19, 0.02]} scale={[0.8, 0.8, 0.8]}>
+              <sphereGeometry args={[0.16, 24, 24]} />
               <meshStandardMaterial color="#ffffff" roughness={0.45} />
             </mesh>
           </group>
@@ -499,7 +540,7 @@ export function Player({ interactables }: { interactables: Interactable[] }) {
 
         {/* ==================== APRON & TEA TOWEL ==================== */}
         {/* Front Apron Bib Layer */}
-        <mesh position={[0, 0.52, -0.155]} rotation={[0.06, 0, 0]} castShadow>
+        <mesh position={[0, 0.52, -0.155]} rotation={[0.06, 0, 0]}>
           <boxGeometry args={[0.26, 0.36, 0.02]} />
           <meshStandardMaterial 
             key={`chef-apron-${activeApronColor}`}
@@ -510,25 +551,25 @@ export function Player({ interactables }: { interactables: Interactable[] }) {
         </mesh>
 
         {/* Apron Halter Strap (looping over neck) */}
-        <mesh position={[0, 0.74, -0.135]} rotation={[Math.PI / 4, 0, 0]} castShadow>
+        <mesh position={[0, 0.74, -0.135]} rotation={[Math.PI / 4, 0, 0]}>
           <boxGeometry args={[0.18, 0.015, 0.14]} />
           <meshStandardMaterial color="#1e293b" roughness={0.8} />
         </mesh>
 
         {/* Apron Center Pouch */}
-        <mesh position={[0, 0.44, -0.168]} castShadow>
+        <mesh position={[0, 0.44, -0.168]}>
           <boxGeometry args={[0.18, 0.12, 0.01]} />
           <meshStandardMaterial color="#1e293b" roughness={0.7} />
         </mesh>
 
         {/* Dynamic Folded Tea Towel hanging out of the apron side strap */}
         <group position={[0.18, 0.41, -0.05]} rotation={[0, 0.4, 0]}>
-          <mesh ref={towelRef} castShadow position={[0, -0.11, 0]}>
+          <mesh ref={towelRef} position={[0, -0.11, 0]}>
             <boxGeometry args={[0.07, 0.22, 0.01]} />
             <meshStandardMaterial color="#ffffff" roughness={0.5} />
           </mesh>
           {/* Hanging ring clasp */}
-          <mesh position={[0, 0, 0.01]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+          <mesh position={[0, 0, 0.01]} rotation={[Math.PI / 2, 0, 0]}>
             <torusGeometry args={[0.025, 0.005, 4, 12]} />
             <meshStandardMaterial color="#cbd5e1" metalness={0.9} roughness={0.2} />
           </mesh>
@@ -538,32 +579,32 @@ export function Player({ interactables }: { interactables: Interactable[] }) {
         {/* ==================== HEAVY UTILITY BELT ==================== */}
         <group position={[0, 0.42, 0]}>
           {/* Main Leather Strap */}
-          <mesh rotation={[Math.PI / 2, 0, 0]} castShadow>
-            <torusGeometry args={[0.25, 0.028, 8, 24]} />
+          <mesh rotation={[Math.PI / 2, 0, 0]}>
+            <torusGeometry args={[0.25, 0.028, 8, 12]} />
             <meshStandardMaterial color="#1e293b" roughness={0.9} />
           </mesh>
 
           {/* Solid Steel Waist Buckle */}
-          <mesh position={[0, 0, -0.275]} castShadow>
+          <mesh position={[0, 0, -0.275]}>
             <boxGeometry args={[0.07, 0.05, 0.02]} />
             <meshStandardMaterial color="#94a3b8" metalness={0.95} roughness={0.15} />
           </mesh>
           
           {/* Back Utility Ammo/Tech Pouches */}
-          <mesh position={[-0.14, 0.01, 0.21]} rotation={[0, Math.PI / 5, 0]} castShadow>
+          <mesh position={[-0.14, 0.01, 0.21]} rotation={[0, Math.PI / 5, 0]}>
             <boxGeometry args={[0.07, 0.08, 0.04]} />
             <meshStandardMaterial color="#0f172a" roughness={0.7} />
           </mesh>
-          <mesh position={[0.14, 0.01, 0.21]} rotation={[0, -Math.PI / 5, 0]} castShadow>
+          <mesh position={[0.14, 0.01, 0.21]} rotation={[0, -Math.PI / 5, 0]}>
             <boxGeometry args={[0.07, 0.08, 0.04]} />
             <meshStandardMaterial color="#0f172a" roughness={0.7} />
           </mesh>
 
           {/* HANGING KITCHEN TOOLS */}
           {/* 1. Cyber Thermal Spatula (with orange glowing active blade!) */}
-          <group position={[0.24, -0.04, 0.08]} rotation={[0, -Math.PI/4, 0.15]}>
+          <group position={[0.12, -0.04, 0.08]} rotation={[0, -Math.PI/4, 0.15]}>
             {/* Spatula Steel Tang */}
-            <mesh castShadow>
+            <mesh>
               <cylinderGeometry args={[0.009, 0.009, 0.15, 6]} />
               <meshStandardMaterial color="#cbd5e1" roughness={0.3} metalness={0.9} />
             </mesh>
@@ -573,20 +614,20 @@ export function Player({ interactables }: { interactables: Interactable[] }) {
               <meshStandardMaterial color="#0f172a" roughness={0.8} />
             </mesh>
             {/* Thermal Laser Blade */}
-            <mesh position={[0, -0.11, 0]} castShadow>
+            <mesh position={[0, -0.11, 0]}>
               <boxGeometry args={[0.045, 0.07, 0.008]} />
               <meshStandardMaterial color="#f97316" roughness={0.1} emissive="#f97316" emissiveIntensity={1.5} />
             </mesh>
           </group>
 
           {/* 2. Sleek digital temp-probe sensor container */}
-          <group position={[-0.24, -0.04, 0.08]} rotation={[0, Math.PI/4, -0.15]}>
-            <mesh castShadow>
+          <group position={[-0.12, -0.04, 0.08]} rotation={[0, Math.PI/4, -0.15]}>
+            <mesh>
               <cylinderGeometry args={[0.018, 0.018, 0.13, 8]} />
               <meshStandardMaterial color="#334155" roughness={0.4} metalness={0.7} />
             </mesh>
             {/* Polished chrome tip */}
-            <mesh position={[0, -0.075, 0]} castShadow>
+            <mesh position={[0, -0.075, 0]}>
               <sphereGeometry args={[0.018, 8, 8]} />
               <meshStandardMaterial color="#cbd5e1" metalness={0.95} roughness={0.1} />
             </mesh>
@@ -604,29 +645,29 @@ export function Player({ interactables }: { interactables: Interactable[] }) {
         {/* --- LEFT ARM GROUP --- */}
         <group ref={leftArmRef} position={[-0.32, 0.8, 0]}>
           {/* Shoulder Pivot cap */}
-          <mesh castShadow>
-            <sphereGeometry args={[0.075, 8, 8]} />
+          <mesh>
+            <sphereGeometry args={[0.075, 16, 16]} />
             <meshStandardMaterial color="#1e293b" roughness={0.3} metalness={0.8} />
           </mesh>
           {/* Upper Arm Segment */}
-          <mesh position={[0, -0.11, 0]} castShadow>
-            <cylinderGeometry args={[0.052, 0.048, 0.16, 8]} />
+          <mesh position={[0, -0.11, 0]}>
+            <cylinderGeometry args={[0.052, 0.048, 0.16, 16]} />
             <meshStandardMaterial color="#f8fafc" roughness={0.4} />
           </mesh>
           {/* Elbow Joint Shield */}
-          <mesh position={[0, -0.2, 0]} castShadow>
-            <sphereGeometry args={[0.045, 8, 8]} />
+          <mesh position={[0, -0.2, 0]}>
+            <sphereGeometry args={[0.045, 16, 16]} />
             <meshStandardMaterial color="#334155" roughness={0.5} />
           </mesh>
           {/* Lower Sleeve Forearm */}
-          <mesh position={[0, -0.28, 0]} castShadow>
-            <cylinderGeometry args={[0.048, 0.044, 0.15, 8]} />
+          <mesh position={[0, -0.28, 0]}>
+            <cylinderGeometry args={[0.048, 0.044, 0.15, 16]} />
             <meshStandardMaterial color="#cbd5e1" roughness={0.4} />
           </mesh>
-          {/* Tech Kitchen Glove Hand */}
+          {/* Chef Hand */}
           <mesh position={[0, -0.38, 0]} castShadow>
-            <sphereGeometry args={[0.052, 10, 10]} />
-            <meshStandardMaterial color="#1e293b" roughness={0.6} />
+            <sphereGeometry args={[0.052, 24, 24]} />
+            <meshStandardMaterial color="#fbcfe8" roughness={0.4} onBeforeCompile={getSkinShader("#fbcfe8")} />
           </mesh>
 
           {/* PROJECTED HOLOGRAPHIC CULINARY WRIST HUD (LEFT WRIST) */}
@@ -647,29 +688,29 @@ export function Player({ interactables }: { interactables: Interactable[] }) {
         {/* --- RIGHT ARM GROUP --- */}
         <group ref={rightArmRef} position={[0.32, 0.8, 0]}>
           {/* Shoulder Pivot cap */}
-          <mesh castShadow>
-            <sphereGeometry args={[0.075, 8, 8]} />
+          <mesh>
+            <sphereGeometry args={[0.075, 16, 16]} />
             <meshStandardMaterial color="#1e293b" roughness={0.3} metalness={0.8} />
           </mesh>
           {/* Upper Arm Segment */}
-          <mesh position={[0, -0.11, 0]} castShadow>
-            <cylinderGeometry args={[0.052, 0.048, 0.16, 8]} />
+          <mesh position={[0, -0.11, 0]}>
+            <cylinderGeometry args={[0.052, 0.048, 0.16, 16]} />
             <meshStandardMaterial color="#f8fafc" roughness={0.4} />
           </mesh>
           {/* Elbow Joint Shield */}
-          <mesh position={[0, -0.2, 0]} castShadow>
-            <sphereGeometry args={[0.045, 8, 8]} />
+          <mesh position={[0, -0.2, 0]}>
+            <sphereGeometry args={[0.045, 16, 16]} />
             <meshStandardMaterial color="#334155" roughness={0.5} />
           </mesh>
           {/* Lower Sleeve Forearm */}
-          <mesh position={[0, -0.28, 0]} castShadow>
-            <cylinderGeometry args={[0.048, 0.044, 0.15, 8]} />
+          <mesh position={[0, -0.28, 0]}>
+            <cylinderGeometry args={[0.048, 0.044, 0.15, 16]} />
             <meshStandardMaterial color="#cbd5e1" roughness={0.4} />
           </mesh>
-          {/* Tech Kitchen Glove Hand */}
+          {/* Chef Hand */}
           <mesh position={[0, -0.38, 0]} castShadow>
-            <sphereGeometry args={[0.052, 10, 10]} />
-            <meshStandardMaterial color="#1e293b" roughness={0.6} />
+            <sphereGeometry args={[0.052, 24, 24]} />
+            <meshStandardMaterial color="#fbcfe8" roughness={0.4} onBeforeCompile={getSkinShader("#fbcfe8")} />
           </mesh>
         </group>
 
@@ -677,76 +718,68 @@ export function Player({ interactables }: { interactables: Interactable[] }) {
         {/* --- LEFT LEG & HEAVY BOOT GROUP --- */}
         <group ref={leftLegRef} position={[-0.14, 0.38, 0]}>
           {/* Upper thigh casing */}
-          <mesh position={[0, -0.06, 0]} castShadow>
-            <cylinderGeometry args={[0.065, 0.058, 0.15, 8]} />
+          <mesh position={[0, -0.06, 0]}>
+            <cylinderGeometry args={[0.065, 0.058, 0.15, 16]} />
             <meshStandardMaterial color="#1e293b" roughness={0.7} />
           </mesh>
           {/* Knee joint connector */}
-          <mesh position={[0, -0.15, 0]} castShadow>
-            <sphereGeometry args={[0.052, 8, 8]} />
+          <mesh position={[0, -0.15, 0]}>
+            <sphereGeometry args={[0.052, 16, 16]} />
             <meshStandardMaterial color="#475569" roughness={0.4} />
           </mesh>
           {/* Lower shin guard */}
-          <mesh position={[0, -0.24, 0]} castShadow>
-            <cylinderGeometry args={[0.058, 0.052, 0.16, 8]} />
+          <mesh position={[0, -0.12, 0]}>
+            <cylinderGeometry args={[0.058, 0.052, 0.16, 16]} />
             <meshStandardMaterial color="#0f172a" roughness={0.6} />
           </mesh>
           
           {/* Multi-layered Heavy Cybernetic Chef Boot */}
           <group position={[0, -0.33, -0.02]}>
             {/* Boot main upper */}
-            <mesh castShadow>
+            <mesh>
               <boxGeometry args={[0.09, 0.06, 0.12]} />
-              <meshStandardMaterial color="#1e293b" roughness={0.6} />
+              <meshStandardMaterial color="#3f3f46" roughness={0.7} />
             </mesh>
             {/* Thick Sole Plate */}
-            <mesh position={[0, -0.04, 0.01]} castShadow>
+            <mesh position={[0, -0.04, 0.01]}>
               <boxGeometry args={[0.1, 0.025, 0.15]} />
               <meshStandardMaterial color="#090d16" roughness={0.8} />
             </mesh>
-            {/* Hardened Steel Toe Plate */}
-            <mesh position={[0, -0.01, -0.06]} castShadow>
-              <sphereGeometry args={[0.048, 8, 8]} scale={[1, 0.8, 1]} />
-              <meshStandardMaterial color="#94a3b8" metalness={0.9} roughness={0.2} />
-            </mesh>
+            
           </group>
         </group>
 
         {/* --- RIGHT LEG & HEAVY BOOT GROUP --- */}
         <group ref={rightLegRef} position={[0.14, 0.38, 0]}>
           {/* Upper thigh casing */}
-          <mesh position={[0, -0.06, 0]} castShadow>
-            <cylinderGeometry args={[0.065, 0.058, 0.15, 8]} />
+          <mesh position={[0, -0.06, 0]}>
+            <cylinderGeometry args={[0.065, 0.058, 0.15, 16]} />
             <meshStandardMaterial color="#1e293b" roughness={0.7} />
           </mesh>
           {/* Knee joint connector */}
-          <mesh position={[0, -0.15, 0]} castShadow>
-            <sphereGeometry args={[0.052, 8, 8]} />
+          <mesh position={[0, -0.15, 0]}>
+            <sphereGeometry args={[0.052, 16, 16]} />
             <meshStandardMaterial color="#475569" roughness={0.4} />
           </mesh>
           {/* Lower shin guard */}
-          <mesh position={[0, -0.24, 0]} castShadow>
-            <cylinderGeometry args={[0.058, 0.052, 0.16, 8]} />
+          <mesh position={[0, -0.12, 0]}>
+            <cylinderGeometry args={[0.058, 0.052, 0.16, 16]} />
             <meshStandardMaterial color="#0f172a" roughness={0.6} />
           </mesh>
           
           {/* Multi-layered Heavy Cybernetic Chef Boot */}
           <group position={[0, -0.33, -0.02]}>
             {/* Boot main upper */}
-            <mesh castShadow>
+            <mesh>
               <boxGeometry args={[0.09, 0.06, 0.12]} />
-              <meshStandardMaterial color="#1e293b" roughness={0.6} />
+              <meshStandardMaterial color="#3f3f46" roughness={0.7} />
             </mesh>
             {/* Thick Sole Plate */}
-            <mesh position={[0, -0.04, 0.01]} castShadow>
+            <mesh position={[0, -0.04, 0.01]}>
               <boxGeometry args={[0.1, 0.025, 0.15]} />
               <meshStandardMaterial color="#090d16" roughness={0.8} />
             </mesh>
-            {/* Hardened Steel Toe Plate */}
-            <mesh position={[0, -0.01, -0.06]} castShadow>
-              <sphereGeometry args={[0.048, 8, 8]} scale={[1, 0.8, 1]} />
-              <meshStandardMaterial color="#94a3b8" metalness={0.9} roughness={0.2} />
-            </mesh>
+            
           </group>
         </group>
 
@@ -758,19 +791,19 @@ export function Player({ interactables }: { interactables: Interactable[] }) {
         {/* Carried Item Container with physics sways */}
         <group ref={itemRef} visible={inventory !== "none"}>
           {inventory === "memory" && (
-            <mesh castShadow>
+            <mesh>
               <octahedronGeometry args={[0.25]} />
               <meshStandardMaterial color="#facc15" roughness={0.1} metalness={0.8} emissive="#facc15" emissiveIntensity={0.3} />
             </mesh>
           )}
           {inventory === "search" && (
-            <mesh castShadow>
-              <torusGeometry args={[0.18, 0.06, 8, 24]} />
+            <mesh>
+              <torusGeometry args={[0.18, 0.06, 8, 12]} />
               <meshStandardMaterial color="#10b981" roughness={0.1} metalness={0.8} emissive="#10b981" emissiveIntensity={0.3} />
             </mesh>
           )}
           {inventory === "research" && (
-            <mesh castShadow>
+            <mesh>
               <coneGeometry args={[0.18, 0.4, 8]} />
               <meshStandardMaterial color="#c084fc" roughness={0.1} metalness={0.8} emissive="#c084fc" emissiveIntensity={0.3} />
             </mesh>
@@ -779,23 +812,23 @@ export function Player({ interactables }: { interactables: Interactable[] }) {
           {/* Hybrid Combinations */}
           {inventory === "memory_search" && (
             <group>
-              <mesh position={[-0.15, 0, 0]} castShadow>
+              <mesh position={[-0.15, 0, 0]}>
                 <octahedronGeometry args={[0.18]} />
                 <meshStandardMaterial color="#facc15" roughness={0.1} metalness={0.8} emissive="#facc15" emissiveIntensity={0.3} />
               </mesh>
-              <mesh position={[0.15, 0, 0]} rotation={[Math.PI / 4, 0, 0]} castShadow>
-                <torusGeometry args={[0.14, 0.04, 8, 24]} />
+              <mesh position={[0.15, 0, 0]} rotation={[Math.PI / 4, 0, 0]}>
+                <torusGeometry args={[0.14, 0.04, 8, 12]} />
                 <meshStandardMaterial color="#10b981" roughness={0.1} metalness={0.8} emissive="#10b981" emissiveIntensity={0.3} />
               </mesh>
             </group>
           )}
           {inventory === "memory_research" && (
             <group>
-              <mesh position={[-0.15, 0, 0]} castShadow>
+              <mesh position={[-0.15, 0, 0]}>
                 <octahedronGeometry args={[0.18]} />
                 <meshStandardMaterial color="#facc15" roughness={0.1} metalness={0.8} emissive="#facc15" emissiveIntensity={0.3} />
               </mesh>
-              <mesh position={[0.15, -0.05, 0]} castShadow>
+              <mesh position={[0.15, -0.05, 0]}>
                 <coneGeometry args={[0.14, 0.3, 8]} />
                 <meshStandardMaterial color="#c084fc" roughness={0.1} metalness={0.8} emissive="#c084fc" emissiveIntensity={0.3} />
               </mesh>
@@ -803,11 +836,11 @@ export function Player({ interactables }: { interactables: Interactable[] }) {
           )}
           {inventory === "search_research" && (
             <group>
-              <mesh position={[-0.15, 0, 0]} rotation={[Math.PI / 4, 0, 0]} castShadow>
-                <torusGeometry args={[0.14, 0.04, 8, 24]} />
+              <mesh position={[-0.15, 0, 0]} rotation={[Math.PI / 4, 0, 0]}>
+                <torusGeometry args={[0.14, 0.04, 8, 12]} />
                 <meshStandardMaterial color="#10b981" roughness={0.1} metalness={0.8} emissive="#10b981" emissiveIntensity={0.3} />
               </mesh>
-              <mesh position={[0.15, -0.05, 0]} castShadow>
+              <mesh position={[0.15, -0.05, 0]}>
                 <coneGeometry args={[0.14, 0.3, 8]} />
                 <meshStandardMaterial color="#c084fc" roughness={0.1} metalness={0.8} emissive="#c084fc" emissiveIntensity={0.3} />
               </mesh>
@@ -815,15 +848,15 @@ export function Player({ interactables }: { interactables: Interactable[] }) {
           )}
           {inventory === "all_combined" && (
             <group>
-              <mesh position={[-0.15, -0.1, 0]} castShadow>
+              <mesh position={[-0.15, -0.1, 0]}>
                 <octahedronGeometry args={[0.14]} />
                 <meshStandardMaterial color="#facc15" roughness={0.1} metalness={0.8} emissive="#facc15" emissiveIntensity={0.3} />
               </mesh>
-              <mesh position={[0.15, -0.1, 0]} rotation={[Math.PI / 4, 0, 0]} castShadow>
-                <torusGeometry args={[0.12, 0.03, 8, 24]} />
+              <mesh position={[0.15, -0.1, 0]} rotation={[Math.PI / 4, 0, 0]}>
+                <torusGeometry args={[0.12, 0.03, 8, 12]} />
                 <meshStandardMaterial color="#10b981" roughness={0.1} metalness={0.8} emissive="#10b981" emissiveIntensity={0.3} />
               </mesh>
-              <mesh position={[0, 0.15, 0]} castShadow>
+              <mesh position={[0, 0.15, 0]}>
                 <coneGeometry args={[0.12, 0.25, 8]} />
                 <meshStandardMaterial color="#c084fc" roughness={0.1} metalness={0.8} emissive="#c084fc" emissiveIntensity={0.3} />
               </mesh>
