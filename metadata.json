@@ -1,0 +1,6 @@
+{
+  "name": "The Retrieval Kitchen",
+  "description": "A 3D web-based narrative game built with React Three Fiber where the player serves answers instead of food.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
