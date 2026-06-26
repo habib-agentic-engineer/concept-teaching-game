@@ -43,7 +43,7 @@ export const QUESTS: Quest[] = [
     hint: "Sarah needs current, real-time info. Visit the Search Market.",
     successText: "Clear skies! Perfect, thanks for the fresh info!",
     failText: "This doesn't help with today's weather. I need fresh, current information.",
-    learningText: "💡 LESSON: The 'Search Market' represents Web Search (RAG). It retrieves fresh, real-time data from the web. It's great for current events, but it doesn't do deep synthesis.",
+    learningText: "💡 LESSON: The 'Search Market' represents Web Search. It retrieves fresh, real-time data from the web. It's great for current events, but it doesn't do deep synthesis.",
   },
   {
     customer: "grandpa",
